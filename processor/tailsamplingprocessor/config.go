@@ -46,6 +46,9 @@ const (
 	SpanCount PolicyType = "span_count"
 	// TraceState sample traces with specified values by the given key
 	TraceState PolicyType = "trace_state"
+
+	// PolicyGroup allows grouping of rules and priority based sampling
+	PolicyGroup = "policy_group"
 )
 
 // sharedPolicyCfg holds the common configuration to all policies that are used in derivative policy configurations
@@ -192,6 +195,43 @@ type SpanCountCfg struct {
 	MinSpans int32 `mapstructure:"min_spans"`
 }
 
+type PolicyRuleFilterCfg struct {
+	// values: AND | OR
+	AttributesOp string `mapstructure:"attributes_op"`
+
+	StringAttributeCfgs  []StringAttributeCfg  `mapstructure:"string_attributes"`
+	NumericAttributeCfgs []NumericAttributeCfg `mapstructure:"numeric_attributes"`
+	SpanCountCfg         `mapstructure:",squash"`
+	StatusCodeCfg        `mapstructure:",squash"`
+}
+
+// PolicyGroupRule identifies policy rules in policy group
+type PolicyGroupRule struct {
+	// name of the policy
+	Name string `mapstructure:"name"`
+
+	// Type of the policy this will be used to match the proper configuration of the policy.
+	Type PolicyType `mapstructure:"type"`
+
+	// Set to true for sampling rule (root) and false for conditions
+	Root bool `mapstructure:"root"`
+
+	Priority int `mapstructure:"priority"`
+
+	// sampling applied when PolicyGroupFilterCfg matches
+	ProbabilisticCfg
+
+	// support multiple attribute filtering. all attributes conditions will be ANDed
+	PolicyRuleFilterCfg `mapstructure:",squash"`
+
+	SubRules []PolicyGroupRule `mapstructure:"sub_rules"`
+}
+
+// define a group of policies to act together
+type PolicyGroupCfg struct {
+	Rules []PolicyGroupRule `json:"rules"`
+}
+
 // Config holds the configuration for tail-based sampling.
 type Config struct {
 	// DecisionWait is the desired wait time from the arrival of the first span of
@@ -206,4 +246,7 @@ type Config struct {
 	// PolicyCfgs sets the tail-based sampling policy which makes a sampling decision
 	// for a given trace when requested.
 	PolicyCfgs []PolicyCfg `mapstructure:"policies"`
+
+	//configs for PolicyGroup and priorities
+	PolicyGroupCfg PolicyGroupCfg `mapstructure:"policy_group"`
 }
